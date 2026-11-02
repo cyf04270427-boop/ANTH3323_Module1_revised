@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>B24 Photograph Archive — ANTH3323 Module 1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/leaflet.css">
+<link rel="stylesheet" href="css/MarkerCluster.css">
+<link rel="stylesheet" href="css/MarkerCluster.Default.css">
+<style>
+:root{
+  --paper:#f3efe6;
+  --panel:#fffdf8;
+  --ink:#1f1d19;
+  --ink-soft:#3c372f;
+  --muted:#6f675b;
+  --line:#ddd6c7;
+  --line-soft:#ece6d9;
+  --accent:#a4471f;
+  --accent-soft:#f4e4d8;
+  --approx:#d42bc4;
+  --village:#12b6c9;
+  --shadow:0 1px 2px rgba(40,32,20,.06),0 8px 24px rgba(40,32,20,.06);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Hiragino Sans TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  font-size:15px;
+  line-height:1.55;
+}
+button{font:inherit;color:inherit}
+
+/* ---------------------------------------------------------------- shell */
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+
+.topbar{
+  flex:0 0 auto;
+  background:var(--ink);
+  color:#f7f2e8;
+  padding:12px 20px;
+  display:flex;align-items:center;gap:16px;
+  border-bottom:1px solid #000;
+}
+.brand h1{
+  margin:0;
+  font-size:19px;
+  letter-spacing:.02em;
+  font-weight:700;
+  line-height:1.2;
+}
+.brand p{
+  margin:3px 0 0;
+  font-size:11.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:#c9bfae;
+}
+.topbar .spacer{flex:1}
+.topbar .hint{
+  font-size:12px;color:#c9bfae;
+  max-width:46ch;text-align:right;line-height:1.4;
+}
+
+.layout{
+  flex:1 1 auto;
+  min-height:0;
+  display:grid;
+  grid-template-columns:322px minmax(0,1fr) 392px;
+  grid-template-areas:"left map detail";
+  gap:0;
+}
+
+.panel{
+  background:var(--panel);
+  min-height:0;
+  display:flex;flex-direction:column;
+}
+.panel-left{grid-area:left;border-right:1px solid var(--line);overflow-y:auto;overflow-x:hidden}
+.panel-map{grid-area:map;position:relative;background:#dcdfe0;overflow:hidden}
+.panel-detail{grid-area:detail;border-left:1px solid var(--line);overflow:hidden}
+
+/* ------------------------------------------------------------- filters */
+.panel-head{
+  flex:0 0 auto;
+  position:sticky;top:0;z-index:5;
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--line-soft);
+  background:var(--panel);
+}
+.panel-head h2{
+  margin:0 0 2px;
+  font-size:13px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:700;
+}
+.count-line{font-size:13px;color:var(--ink-soft)}
+.count-line b{font-size:16px;color:var(--accent)}
+
+.stats{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1px;background:var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+}
+.stat{background:var(--panel);padding:10px 12px}
+.stat b{display:block;font-size:18px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.filters{
+  flex:0 0 auto;
+  overflow:visible;
+  padding:6px 16px 12px;
+  overscroll-behavior:contain;
+}
+@media (max-height:780px){
+  .filters{max-height:44%;overflow:auto}
+}
+.filters-bar{
+  display:flex;gap:6px;padding:10px 0 4px;
+  position:sticky;top:0;background:var(--panel);z-index:2;
+}
+.btn{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:999px;
+  padding:4px 11px;
+  font-size:12px;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn:hover{background:var(--accent-soft);border-color:#e2c3ae;color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.ghost{background:transparent}
+
+.fgroup{margin:0 0 14px}
+.fgroup:last-child{margin-bottom:2px}
+.fgroup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 5px}
+.fgroup-name{font-size:12.5px;font-weight:700;letter-spacing:.02em}
+.fgroup-name .en{font-weight:400;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-left:5px}
+.fgroup-actions{display:flex;gap:4px}
+.mini{
+  border:0;background:transparent;color:var(--muted);
+  font-size:11px;padding:2px 4px;border-radius:3px;cursor:pointer;
+}
+.mini:hover{color:var(--accent);background:var(--accent-soft)}
+.mini:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.opt{
+  display:flex;align-items:center;gap:8px;
+  padding:2px 4px;border-radius:4px;cursor:pointer;
+  font-size:13px;
+}
+.opt:hover{background:#f7f2e7}
+.opt input{margin:0;accent-color:var(--accent);width:14px;height:14px;flex:0 0 auto}
+.opt .lbl{flex:1;min-width:0;overflow-wrap:anywhere}
+.opt .n{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.opt.is-off{color:#a49b8c}
+.opt.is-off .n{color:#c0b6a6}
+
+/* ---------------------------------------------------------------- list */
+.list-head{
+  flex:0 0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+  background:#fbf8f1;
+}
+.list-head h3{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.list-scroll{flex:0 0 auto;overflow:visible;padding:8px 8px 18px}
+.list-empty{padding:22px 14px;font-size:13px;color:var(--muted);text-align:center;line-height:1.7}
+
+.item{
+  display:flex;gap:10px;align-items:center;width:100%;
+  padding:7px;border:1px solid transparent;border-radius:6px;
+  background:transparent;text-align:left;cursor:pointer;
+  transition:background .13s,border-color .13s;
+}
+.item:hover{background:#f8f3e8;border-color:var(--line-soft)}
+.item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.item.is-active{background:var(--accent-soft);border-color:#e0bfa9}
+.item[hidden]{display:none}
+.item img{
+  width:52px;height:52px;flex:0 0 auto;object-fit:cover;
+  border-radius:4px;background:#e8e2d6;border:1px solid var(--line-soft);
+  display:block;
+}
+.item .txt{min-width:0;flex:1}
+.item .pid{font-size:12.5px;font-weight:700;letter-spacing:.02em}
+.item .place{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .tag{font-size:10.5px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+
+/* ----------------------------------------------------------------- map */
+#map{position:absolute;inset:0;background:#dfe3e4}
+.leaflet-container{font:inherit}
+
+.map-badge{
+  position:absolute;left:12px;bottom:12px;z-index:500;
+  background:rgba(255,253,248,.94);
+  border:1px solid var(--line);
+  border-radius:7px;
+  padding:9px 11px;
+  box-shadow:var(--shadow);
+  font-size:12px;
+  max-width:230px;
+  backdrop-filter:blur(4px);
+}
+.map-badge h4{
+  margin:0 0 6px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;
+}
+.leg-row{display:flex;align-items:center;gap:7px;padding:2px 0}
+.leg-dot{flex:0 0 auto;border-radius:50%;border:1px solid #232323;display:inline-block}
+.leg-n{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+.map-badge label{
+  display:flex;align-items:center;gap:6px;margin-top:7px;padding-top:7px;
+  border-top:1px solid var(--line-soft);font-size:11.5px;color:var(--muted);cursor:pointer;
+}
+.map-empty{
+  position:absolute;inset:0;z-index:480;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(243,239,230,.82);
+  font-size:14px;color:var(--muted);text-align:center;padding:24px;
+  backdrop-filter:blur(2px);
+}
+
+/* selected pin */
+.sel-pin{background:none;border:0}
+.sel-ring{
+  position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;
+  border-radius:50%;border:3px solid #ff7a00;
+  box-shadow:0 0 0 3px rgba(255,255,255,.85);
+  animation:selPulse 1.8s ease-out infinite;
+}
+.sel-dot{
+  position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
+  border-radius:50%;background:#ff7a00;box-shadow:0 0 0 2px #fff;
+}
+@keyframes selPulse{
+  0%{transform:scale(.75);opacity:1}
+  70%{transform:scale(1.55);opacity:0}
+  100%{transform:scale(1.55);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .sel-ring{animation:none}
+}
+
+/* --------------------------------------------------------------- detail */
+.detail-head{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--line-soft);background:#fbf8f1;
+}
+.detail-head h2{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.detail-close{
+  display:none;border:1px solid var(--line);background:#fff;border-radius:6px;
+  width:28px;height:28px;line-height:1;cursor:pointer;color:var(--muted);font-size:15px;
+}
+.detail-body{flex:1 1 auto;overflow:auto;overscroll-behavior:contain}
+
+.detail-empty{
+  height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:30px 24px;text-align:center;color:var(--muted);font-size:13px;
+}
+.detail-empty .big{font-size:30px;opacity:.35;letter-spacing:.2em}
+
+.photo-wrap{background:#eae4d7;border-bottom:1px solid var(--line-soft);position:relative}
+.photo-wrap img{display:block;width:100%;height:auto;max-height:52vh;object-fit:contain;background:#eae4d7}
+.photo-wrap .fail{
+  display:none;padding:40px 20px;text-align:center;font-size:12.5px;color:var(--muted);
+}
+.photo-wrap.is-fail img{display:none}
+.photo-wrap.is-fail .fail{display:block}
+
+.detail-main{padding:14px 16px 20px}
+.pid-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.pid{font-size:20px;font-weight:700;letter-spacing:.02em;line-height:1.2}
+.place-title{font-size:14px;color:var(--ink-soft);font-weight:600}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 14px}
+.badge{
+  font-size:11px;letter-spacing:.03em;padding:2px 8px;border-radius:999px;
+  border:1px solid var(--line);background:#faf6ec;color:var(--ink-soft);
+}
+.badge.prec-Approximate{border-color:#eebde8;background:#fdf0fb;color:#93208a}
+.badge.prec-Village-level{border-color:#b3e6ec;background:#eefbfd;color:#0b7f8c}
+.badge.muted{color:var(--muted)}
+
+.meta{margin:0;border-top:1px solid var(--line-soft)}
+.meta-row{
+  display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--line-soft);
+}
+.meta-k{font-size:11.5px;letter-spacing:.03em;color:var(--muted);padding-top:1px}
+.meta-v{font-size:13px;overflow-wrap:anywhere;color:var(--ink)}
+.meta-v.na{color:#a79d8d;font-style:italic}
+
+.same-coord{margin-top:16px}
+.same-coord h4{
+  margin:0 0 7px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{
+  border:1px solid var(--line);background:#fff;border-radius:999px;
+  padding:3px 10px;font-size:11.5px;cursor:pointer;
+}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.is-current{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.notice{
+  margin-top:14px;padding:9px 11px;border-radius:6px;
+  background:#fdf3e6;border:1px solid #efd6bb;font-size:12px;color:#7a4a1d;
+}
+.notice[hidden]{display:none}
+
+/* method */
+.method{
+  flex:0 1 auto;
+  border-top:1px solid var(--line);
+  background:#fbf8f1;
+  max-height:36%;
+  overflow:auto;
+  font-size:12px;
+}
+.method summary{
+  cursor:pointer;padding:11px 16px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;list-style:none;
+}
+.method summary::-webkit-details-marker{display:none}
+.method summary::after{content:"＋";float:right;color:var(--accent);font-size:13px}
+.method[open] summary::after{content:"－"}
+.method-body{padding:0 16px 16px;color:var(--ink-soft);line-height:1.65}
+.method-body p{margin:0 0 8px}
+.method-body dl{margin:0 0 10px}
+.method-body dt{font-weight:700;font-size:12px;margin-top:6px}
+.method-body dd{margin:0 0 2px;padding-left:0;color:var(--ink-soft)}
+.method-body .foot{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line-soft);padding-top:9px}
+
+/* backdrop for tablet / mobile drawer */
+.sheet-backdrop{
+  display:none;position:fixed;inset:0;z-index:1100;
+  background:rgba(25,20,14,.38);opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.sheet-backdrop.show{opacity:1;pointer-events:auto}
+
+/* ---------------------------------------------------------- tablet 761-1199 */
+@media (max-width:1199px){
+  .layout{grid-template-columns:296px minmax(0,1fr);grid-template-areas:"left map"}
+  .panel-detail{
+    position:fixed;top:0;right:0;bottom:0;width:min(400px,92vw);z-index:1200;
+    transform:translateX(103%);transition:transform .28s cubic-bezier(.22,.7,.3,1);
+    box-shadow:-14px 0 44px rgba(30,22,12,.22);
+  }
+  .panel-detail.open{transform:none}
+  .detail-close{display:block}
+  .sheet-backdrop{display:block}
+  .topbar .hint{display:none}
+}
+
+/* ---------------------------------------------------------------- mobile */
+@media (max-width:767px){
+  body{font-size:14px}
+  .topbar{padding:10px 14px}
+  .brand h1{font-size:16px}
+  .brand p{font-size:10.5px;letter-spacing:.1em}
+  .layout{display:flex;flex-direction:column;overflow:auto}
+  .panel-map{order:0;height:46vh;min-height:290px;flex:0 0 auto;border-bottom:1px solid var(--line)}
+  .panel-left{order:1;flex:0 0 auto;border-right:0;overflow:visible}
+  .filters{max-height:none;overflow:visible}
+  .list-scroll{overflow:visible;max-height:none}
+  .panel-detail{
+    position:fixed;left:0;right:0;bottom:0;top:auto;height:92vh;width:100%;
+    z-index:1200;transform:translateY(103%);
+    border-left:0;border-top:1px solid var(--line);
+    border-radius:14px 14px 0 0;
+    transition:transform .3s cubic-bezier(.22,.7,.3,1);
+    box-shadow:0 -14px 44px rgba(30,22,12,.24);
+  }
+  .panel-detail.open{transform:none}
+  .photo-wrap img{max-height:38vh}
+  .map-badge{left:8px;bottom:8px;padding:7px 9px;font-size:11px;max-width:190px}
+  .method{max-height:none}
+  .list-scroll{padding-bottom:26px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>B24 Photograph Archive</h1>
+      <p>ANTH3323 Module 1</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="hint">依 qgis2web 匯出的照片圖層建立；座標與定位分類沿用原始資料，未作改動。</div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ============ LEFT : stats + filters + list ============ -->
+    <aside class="panel panel-left" aria-label="篩選與照片列表">
+      <div class="panel-head">
+        <h2>Photos</h2>
+        <div class="count-line">顯示 <b id="cntVisible">0</b> / <span id="cntTotal">0</span> 張照片</div>
+      </div>
+
+      <div class="stats" role="group" aria-label="照片數量統計">
+        <div class="stat"><b id="statTotal">0</b><span>Total</span></div>
+        <div class="stat"><b id="statMapped">0</b><span>Mapped</span></div>
+        <div class="stat"><b id="statUnmapped">0</b><span>Unmapped</span></div>
+      </div>
+
+      <div class="filters" id="filters">
+        <div class="filters-bar">
+          <button type="button" class="btn" id="btnAll">顯示全部</button>
+          <button type="button" class="btn ghost" id="btnClear">全部取消</button>
+        </div>
+        <div id="filterGroups"></div>
+      </div>
+
+      <div class="list-head">
+        <h3>Photographs</h3>
+        <span class="tag" id="listCount"></span>
+      </div>
+      <div class="list-scroll" id="listScroll">
+        <div id="photoList" role="list"></div>
+        <div class="list-empty" id="listEmpty" hidden>
+          沒有符合目前篩選條件的照片。<br>
+          <button type="button" class="btn" id="btnResetInline" style="margin-top:8px">重設篩選</button>
+        </div>
+      </div>
+
+      <details class="method" id="methodBox">
+        <summary>定位與數量說明</summary>
+        <div class="method-body">
+          <p><strong>定位精度</strong>描述的是「這個點代表什麼」，不是信心評分。</p>
+          <dl>
+            <dt>Exact</dt>
+            <dd>具體對象的位置有證據支持；仍須參考定位說明，區分主體位置與攝影者位置。</dd>
+            <dt>Approximate</dt>
+            <dd>依現有線索估計的位置，仍有偏差。</dd>
+            <dt>Village-level</dt>
+            <dd>村落代表位置，不代表精確拍攝點。</dd>
+            <dt>Unknown</dt>
+            <dd>無法合理定位，保留照片供瀏覽。</dd>
+          </dl>
+          <p class="foot" id="methodFoot"></p>
+        </div>
+      </details>
+    </aside>
+
+    <!-- ============ CENTER : map ============ -->
+    <section class="panel panel-map" aria-label="互動地圖">
+      <div id="map"></div>
+
+      <div class="map-badge" id="legend">
+        <h4>定位精度</h4>
+        <div id="legendRows"></div>
+        <label for="lyrHillshade">
+          <input type="checkbox" id="lyrHillshade" checked>
+          地形陰影圖層
+        </label>
+      </div>
+
+      <div class="map-empty" id="mapEmpty" hidden>目前篩選沒有可顯示的照片</div>
+    </section>
+
+    <!-- ============ RIGHT : photograph + metadata ============ -->
+    <aside class="panel panel-detail" id="detailPanel" aria-label="照片與 metadata">
+      <div class="detail-head">
+        <h2>Photograph</h2>
+        <button type="button" class="detail-close" id="btnCloseDetail" aria-label="關閉詳情">✕</button>
+      </div>
+
+      <div class="detail-body">
+        <div class="detail-empty" id="detailEmpty">
+          <div class="big">◻</div>
+          <div>從左側列表或地圖點選照片<br>即可查看大圖與 metadata</div>
+        </div>
+
+        <div id="detailContent" hidden>
+          <div class="photo-wrap" id="photoWrap">
+            <img id="photoImg" alt="">
+            <div class="fail">圖片未能載入。</div>
+          </div>
+
+          <div class="detail-main">
+            <div class="pid-row">
+              <span class="pid" id="dPid">—</span>
+              <span class="place-title" id="dPlace"></span>
+            </div>
+            <div class="badges" id="dBadges"></div>
+            <dl class="meta" id="dMeta"></dl>
+            <div class="notice" id="dNoCoord" hidden>此照片沒有有效座標，只顯示詳情，未在地圖上加點。</div>
+            <div class="notice" id="dOutFilter" hidden>目前篩選未包含這張照片。</div>
+
+            <div class="same-coord" id="dSameWrap" hidden>
+              <h4>同一位置的其他照片</h4>
+              <div class="chips" id="dSame"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+</div>
+
+<div class="sheet-backdrop" id="backdrop"></div>
+
+<script src="js/leaflet.js"></script>
+<script src="js/leaflet.markercluster.js"></script>
+<script src="data/B24_complete_dataset_11.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- data */
+  var SRC = window.json_B24_complete_dataset_11;
+  if (!SRC || !SRC.features) {
+    document.body.insertAdjacentHTML("afterbegin",
+      '<p style="padding:16px;color:#a00">找不到照片圖層資料（window.json_B24_complete_dataset_11）。</p>');
+    return;
+  }
+
+  var VIEW_BOUNDS = [[22.265670603502564, 113.87626186844318], [22.301053099951815, 113.94061442018736]];
+  var MAX_ZOOM = 17;
+
+  /* raster layers, exactly as in the original index.html */
+  var RASTERS = [
+    { f: "data/web/OPM100_2025_0.png", b: [[22.076205181083964, 113.75167100210537], [22.624727555473488, 114.51155829843452]], z: 400, group: "base" },
+    { f: "data/web/63G9SE1C00_1.png", b: [[22.289864809582024, 113.897701789918], [22.295295474197015, 113.90499041133644]], z: 401, group: "hill" },
+    { f: "data/web/63G9SE13B00_2.png", b: [[22.27366830962505, 113.934120611394], [22.279097360112882, 113.94140700408703]], z: 402, group: "hill" },
+    { f: "data/web/63G9SE8D00_3.png", b: [[22.27908664550362, 113.93411125972408], [22.284515695281364, 113.94139793561807]], z: 403, group: "hill" },
+    { f: "data/web/63G9SE9A00_4.png", b: [[22.284515695281364, 113.94137979025932], [22.289944420918758, 113.94866647334709]], z: 404, group: "hill" },
+    { f: "data/web/63G9SE1D00_5.png", b: [[22.289877161598756, 113.90497993161954], [22.29530750313902, 113.91226827753705]], z: 405, group: "hill" },
+    { f: "data/web/63G9SE2C00_6.png", b: [[22.289889187294076, 113.91225807838372], [22.295319205671106, 113.91954614866454]], z: 406, group: "hill" },
+    { f: "data/web/63G9SE6A00_7.png", b: [[22.284446496709748, 113.89771255019761], [22.289877161598756, 113.90500088781394]], z: 407, group: "hill" },
+    { f: "data/web/63G9SE6C00_8.png", b: [[22.279028180229833, 113.89772330715151], [22.284458845392393, 113.90501136105259]], z: 408, group: "hill" },
+    { f: "data/web/63G9SE8B00_9.png", b: [[22.2845049777764, 113.93410190516055], [22.289934026843603, 113.94138886434231]], z: 409, group: "hill" },
+    { f: "data/web/63G9SW5D00_10.png", b: [[22.289852131244864, 113.89042365341405], [22.295283118845973, 113.89771255019761]], z: 410, group: "hill" }
+  ];
+
+  var FILTER_FIELDS = [
+    { key: "place_name", label: "地點", en: "Place name" },
+    { key: "photo_subject", label: "題材", en: "Photo subject" },
+    { key: "location_precision", label: "定位精度", en: "Location precision" }
+  ];
+
+  var META_FIELDS = [
+    ["photo_id", "照片編號"],
+    ["file_name", "檔案名稱"],
+    ["place_name", "地點"],
+    ["capture_date", "拍攝日期"],
+    ["photo_subject", "題材"],
+    ["direction", "方向"],
+    ["location_precision", "定位精度"],
+    ["location_source", "定位來源"],
+    ["notes", "備註"],
+    ["location_note", "定位說明"]
+  ];
+
+  var PREC_STYLE = {
+    "Exact": { r: 7, fill: "#2f9e44" },
+    "Approximate": { r: 5, fill: "#d42bc4" },
+    "Village-level": { r: 8, fill: "#12b6c9" },
+    "Unknown": { r: 5, fill: "#8f8b84" }
+  };
+  var PREC_ORDER = ["Exact", "Approximate", "Village-level", "Unknown"];
+
+  /* ------------------------------------------------------------- helpers */
+  function txt(v) {
+    if (v === null || v === undefined) return "";
+    var s = String(v).trim();
+    return s === "" ? "" : s;
+  }
+  function num(v) {
+    var n = parseFloat(v);
+    return isFinite(n) ? n : NaN;
+  }
+  function photoURL(rec) {
+    var raw = txt(rec.p.photo_path);
+    var name;
+    if (raw) {
+      name = raw.replace(/[\\/:]/g, "_").trim();
+    } else {
+      name = txt(rec.p.file_name) + ".jpg";
+    }
+    return "images/" + encodeURIComponent(name);
+  }
+  function precOf(v) {
+    var s = txt(v);
+    return s || "Unknown";
+  }
+  function fmt(n) { return String(n); }
+
+  /* ------------------------------------------------------------- records */
+  var records = SRC.features.map(function (f, i) {
+    var p = f.properties || {};
+    var lat = num(p.latitude), lon = num(p.longitude);
+    if (f.geometry && f.geometry.type === "Point" && f.geometry.coordinates) {
+      lon = num(f.geometry.coordinates[0]);
+      lat = num(f.geometry.coordinates[1]);
+    }
+    var mapped = isFinite(lat) && isFinite(lon) && !(lat === 0 && lon === 0)
+      && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    return {
+      i: i,
+      p: p,
+      id: txt(p.photo_id) || txt(p.photo_no) || ("#" + (i + 1)),
+      lat: lat,
+      lon: lon,
+      mapped: mapped,
+      precision: precOf(p.location_precision),
+      marker: null
+    };
+  });
+
+  var byIndex = {};
+  records.forEach(function (r) { byIndex[r.i] = r; });
+
+  /* exact-coordinate groups (for "same place" browsing) */
+  var coordGroups = {};
+  records.forEach(function (r) {
+    if (!r.mapped) return;
+    var k = r.lat.toFixed(6) + "," + r.lon.toFixed(6);
+    (coordGroups[k] = coordGroups[k] || []).push(r);
+  });
+
+  /* --------------------------------------------------------------- state */
+  var facet = {};
+  FILTER_FIELDS.forEach(function (fd) {
+    var vals = [], seen = Object.create(null), counts = Object.create(null);
+    records.forEach(function (r) {
+      var v = txt(r.p[fd.key]) || "未提供";
+      if (!seen[v]) { seen[v] = 1; vals.push(v); }
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    facet[fd.key] = { values: vals, counts: counts, active: Object.create(null) };
+    vals.forEach(function (v) { facet[fd.key].active[v] = true; });
+  });
+
+  var selectedIndex = -1;
+  var suppressFocus = false;
+
+  function valueOf(r, key) { return txt(r.p[key]) || "未提供"; }
+
+  function matches(r) {
+    for (var i = 0; i < FILTER_FIELDS.length; i++) {
+      var key = FILTER_FIELDS[i].key;
+      if (!facet[key].active[valueOf(r, key)]) return false;
+    }
+    return true;
+  }
+
+  /* ----------------------------------------------------------------- map */
+  var map = L.map("map", {
+    zoomControl: false,
+    maxZoom: MAX_ZOOM,
+    minZoom: 11
+  }).fitBounds(VIEW_BOUNDS);
+
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  L.control.scale({ position: "bottomright", imperial: false }).addTo(map);
+
+  var imgLayers = [];
+  RASTERS.forEach(function (r) {
+    var paneName = "pane_r" + r.z;
+    map.createPane(paneName);
+    map.getPane(paneName).style.zIndex = r.z;
+    var ov = L.imageOverlay(r.f, r.b, { pane: paneName });
+    ov._grp = r.group;
+    ov.addTo(map);
+    imgLayers.push(ov);
+  });
+
+  map.createPane("pane_pin");
+  map.getPane("pane_pin").style.zIndex = 650;
+  map.getPane("pane_pin").style.pointerEvents = "none";
+
+  var PHOTO_PANE = "pane_photos";
+  map.createPane(PHOTO_PANE);
+  map.getPane(PHOTO_PANE).style.zIndex = 600;
+
+  function baseStyle(r) {
+    var s = PREC_STYLE[r.precision] || PREC_STYLE.Unknown;
+    return {
+      pane: PHOTO_PANE,
+      radius: s.r,
+      color: "#232323",
+      weight: 1,
+      opacity: 1,
+      fillColor: s.fill,
+      fillOpacity: 1,
+      interactive: true
+    };
+  }
+  function selStyle(r) {
+    var s = baseStyle(r);
+    s.color = "#ffffff";
+    s.weight = 3;
+    s.radius = s.radius + 3;
+    return s;
+  }
+
+  var cluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyDistanceMultiplier: 2,
+    maxClusterRadius: 60,
+    spiderfyOnMaxZoom: true,
+    removeOutsideVisibleBounds: true
+  });
+  cluster.addTo(map);
+
+  records.forEach(function (r) {
+    if (!r.mapped) return;
+    var m = L.circleMarker([r.lat, r.lon], baseStyle(r));
+    m.bindTooltip(r.id, { direction: "top", offset: [0, -6], opacity: 0.9 });
+    m.on("click", function (e) {
+      if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+      select(r.i, { fromMap: true });
+    });
+    r.marker = m;
+  });
+
+  var pin = null;
+  function setPin(ll) {
+    if (pin) { map.removeLayer(pin); pin = null; }
+    if (!ll) return;
+    pin = L.marker(ll, {
+      icon: L.divIcon({
+        className: "sel-pin",
+        html: '<span class="sel-ring"></span><span class="sel-dot"></span>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+      }),
+      interactive: false,
+      keyboard: false,
+      pane: "pane_pin",
+      zIndexOffset: 1000
+    }).addTo(map);
+  }
+
+  var selectedMarker = null;
+  function applySelectionStyle() {
+    var r = records[selectedIndex];
+    /* clear the previous highlight */
+    if (selectedMarker && selectedMarker !== (r && r.marker)) {
+      var old = null;
+      for (var i = 0; i < records.length; i++) {
+        if (records[i].marker === selectedMarker) { old = records[i]; break; }
+      }
+      if (old) selectedMarker.setStyle(baseStyle(old));
+      selectedMarker = null;
+    }
+    if (!r || !r.marker) return;
+    r.marker.setStyle(selStyle(r));
+    selectedMarker = r.marker;
+  }
+
+  /* --------------------------------------------------------- filter UI */
+  var filterGroupsEl = document.getElementById("filterGroups");
+
+  function buildFilters() {
+    filterGroupsEl.textContent = "";
+    FILTER_FIELDS.forEach(function (fd) {
+      var st = facet[fd.key];
+
+      var g = document.createElement("div");
+      g.className = "fgroup";
+
+      var head = document.createElement("div");
+      head.className = "fgroup-head";
+
+      var name = document.createElement("div");
+      name.className = "fgroup-name";
+      name.textContent = fd.label;
+      var en = document.createElement("span");
+      en.className = "en";
+      en.textContent = fd.en;
+      name.appendChild(en);
+
+      var acts = document.createElement("div");
+      acts.className = "fgroup-actions";
+      var bAll = document.createElement("button");
+      bAll.type = "button"; bAll.className = "mini"; bAll.textContent = "全選";
+      var bNone = document.createElement("button");
+      bNone.type = "button"; bNone.className = "mini"; bNone.textContent = "清除";
+      bAll.addEventListener("click", function () { setField(fd.key, true); });
+      bNone.addEventListener("click", function () { setField(fd.key, false); });
+      acts.appendChild(bAll); acts.appendChild(bNone);
+
+      head.appendChild(name); head.appendChild(acts);
+      g.appendChild(head);
+
+      st.values.forEach(function (v) {
+        var row = document.createElement("label");
+        row.className = "opt";
+
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!st.active[v];
+        cb.setAttribute("aria-label", fd.label + "：" + v);
+        cb.addEventListener("change", function () {
+          st.active[v] = cb.checked;
+          row.classList.toggle("is-off", !cb.checked);
+          render();
+        });
+
+        var lbl = document.createElement("span");
+        lbl.className = "lbl";
+        lbl.textContent = v;
+
+        var n = document.createElement("span");
+        n.className = "n";
+        n.textContent = st.counts[v];
+
+        row.appendChild(cb); row.appendChild(lbl); row.appendChild(n);
+        g.appendChild(row);
+        st.rows = st.rows || [];
+        st.rows.push({ v: v, cb: cb, row: row });
+      });
+
+      filterGroupsEl.appendChild(g);
+    });
+  }
+
+  function setField(key, on) {
+    var st = facet[key];
+    st.values.forEach(function (v) { st.active[v] = on; });
+    st.rows.forEach(function (o) {
+      o.cb.checked = on;
+      o.row.classList.toggle("is-off", !on);
+    });
+    render();
+  }
+
+  function setAll(on) {
+    FILTER_FIELDS.forEach(function (fd) {
+      var st = facet[fd.key];
+      st.values.forEach(function (v) { st.active[v] = on; });
+      st.rows.forEach(function (o) {
+        o.cb.checked = on;
+        o.row.classList.toggle("is-off", !on);
+      });
+    });
+    render();
+  }
+
+  /* ------------------------------------------------------------ list UI */
+  var listEl = document.getElementById("photoList");
+  var listItems = [];
+
+  function buildList() {
+    var frag = document.createDocumentFragment();
+    records.forEach(function (r) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "item";
+      btn.setAttribute("role", "listitem");
+      btn.dataset.idx = String(r.i);
+
+      var img = document.createElement("img");
+      img.src = photoURL(r);
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.addEventListener("error", function () {
+        img.style.visibility = "hidden";
+      });
+
+      var t = document.createElement("div");
+      t.className = "txt";
+
+      var a = document.createElement("div");
+      a.className = "pid";
+      a.textContent = r.id;
+
+      var b = document.createElement("div");
+      b.className = "place";
+      b.textContent = txt(r.p.place_name) || "未提供";
+
+      var c = document.createElement("div");
+      c.className = "tag";
+      c.textContent = (txt(r.p.photo_subject) || "未提供") + " · " + r.precision;
+
+      t.appendChild(a); t.appendChild(b); t.appendChild(c);
+
+      btn.appendChild(img); btn.appendChild(t);
+      btn.addEventListener("click", function () { select(r.i, { fromList: true }); });
+
+      frag.appendChild(btn);
+      listItems.push({ idx: r.i, el: btn });
+    });
+    listEl.appendChild(frag);
+  }
+
+  /* --------------------------------------------------------------- render */
+  var visible = [];
+
+  function render() {
+    visible = records.filter(matches);
+    var visSet = Object.create(null);
+    visible.forEach(function (r) { visSet[r.i] = 1; });
+
+    /* list visibility */
+    listItems.forEach(function (it) {
+      it.el.hidden = !visSet[it.idx];
+    });
+
+    /* markers */
+    cluster.clearLayers();
+    visible.forEach(function (r) {
+      if (r.marker) cluster.addLayer(r.marker);
+    });
+
+    /* counts */
+    document.getElementById("cntVisible").textContent = fmt(visible.length);
+    document.getElementById("cntTotal").textContent = fmt(records.length);
+    document.getElementById("listCount").textContent = visible.length + " / " + records.length;
+    document.getElementById("listEmpty").hidden = visible.length !== 0;
+    document.getElementById("mapEmpty").hidden = visible.length !== 0;
+
+    /* selection-dependent bits */
+    if (selectedIndex >= 0) {
+      var cur = records[selectedIndex];
+      var inView = !!visSet[selectedIndex];
+      document.getElementById("dOutFilter").hidden = inView;
+      if (cur && inView && cur.marker) {
+        applySelectionStyle();
+        setPin([cur.lat, cur.lon]);
+      } else {
+        setPin(null);
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------- detail */
+  var detailEmpty = document.getElementById("detailEmpty");
+  var detailContent = document.getElementById("detailContent");
+  var photoWrap = document.getElementById("photoWrap");
+  var photoImg = document.getElementById("photoImg");
+  var dMeta = document.getElementById("dMeta");
+  var dBadges = document.getElementById("dBadges");
+
+  function metaRow(label, value) {
+    var row = document.createElement("div");
+    row.className = "meta-row";
+    var k = document.createElement("div");
+    k.className = "meta-k";
+    k.textContent = label;
+    var v = document.createElement("div");
+    v.className = "meta-v";
+    if (value === null || value === undefined || String(value).trim() === "") {
+      v.textContent = "未提供";
+      v.classList.add("na");
+    } else {
+      v.textContent = String(value);
+    }
+    row.appendChild(k); row.appendChild(v);
+    return row;
+  }
+
+  function renderDetail(r) {
+    detailEmpty.hidden = true;
+    detailContent.hidden = false;
+
+    photoWrap.classList.remove("is-fail");
+    photoImg.alt = "照片 " + r.id;
+    photoImg.src = photoURL(r);
+
+    document.getElementById("dPid").textContent = r.id;
+    document.getElementById("dPlace").textContent = txt(r.p.place_name);
+
+    dBadges.textContent = "";
+    var pb = document.createElement("span");
+    pb.className = "badge prec-" + r.precision.replace(/[^A-Za-z-]/g, "");
+    pb.textContent = r.precision;
+    dBadges.appendChild(pb);
+
+    if (txt(r.p.photo_subject)) {
+      var sb = document.createElement("span");
+      sb.className = "badge";
+      sb.textContent = txt(r.p.photo_subject);
+      dBadges.appendChild(sb);
+    }
+    if (!r.mapped) {
+      var nb = document.createElement("span");
+      nb.className = "badge muted";
+      nb.textContent = "未定位";
+      dBadges.appendChild(nb);
+    }
+
+    dMeta.textContent = "";
+    META_FIELDS.forEach(function (mf) {
+      dMeta.appendChild(metaRow(mf[1], r.p[mf[0]]));
+    });
+
+    document.getElementById("dNoCoord").hidden = r.mapped;
+
+    var body = document.querySelector(".detail-body");
+    if (body) body.scrollTop = 0;
+
+    /* same-coordinate siblings */
+    var sameWrap = document.getElementById("dSameWrap");
+    var sameEl = document.getElementById("dSame");
+    sameEl.textContent = "";
+    var group = r.mapped ? coordGroups[r.lat.toFixed(6) + "," + r.lon.toFixed(6)] : null;
+    if (group && group.length > 1) {
+      sameWrap.hidden = false;
+      group.forEach(function (o) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (o.i === r.i ? " is-current" : "");
+        b.textContent = o.id;
+        b.addEventListener("click", function () { select(o.i, { fromList: true }); });
+        sameEl.appendChild(b);
+      });
+    } else {
+      sameWrap.hidden = true;
+    }
+  }
+
+  /* ----------------------------------------------------------- selection */
+  function isSheetMode() {
+    return window.matchMedia("(max-width:1199px)").matches;
+  }
+
+  function openSheet() {
+    if (!isSheetMode()) return;
+    document.getElementById("detailPanel").classList.add("open");
+    document.getElementById("backdrop").classList.add("show");
+  }
+  function closeSheet() {
+    document.getElementById("detailPanel").classList.remove("open");
+    document.getElementById("backdrop").classList.remove("show");
+  }
+
+  function select(idx, opts) {
+    opts = opts || {};
+    var r = records[idx];
+    if (!r) return;
+
+    selectedIndex = idx;
+    renderDetail(r);
+
+    listItems.forEach(function (it) {
+      it.el.classList.toggle("is-active", it.idx === idx);
+    });
+    var activeEl = document.querySelector('.item.is-active');
+    if (activeEl && opts.fromList && activeEl.scrollIntoView) {
+      activeEl.scrollIntoView({ block: "nearest" });
+    }
+
+    if (!r.mapped) {
+      setPin(null);
+      if (isSheetMode()) openSheet();
+      return;
+    }
+
+    var ll = [r.lat, r.lon];
+    setPin(ll);
+    applySelectionStyle();
+
+    var moved = false;
+    function settle() {
+      if (moved) return;
+      moved = true;
+      map.panInside(ll, { paddingTopLeft: [40, 40], paddingBottomRight: [40, 40], animate: true });
+      applySelectionStyle();
+    }
+
+    if (cluster.hasLayer(r.marker)) {
+      cluster.zoomToShowLayer(r.marker, settle);
+      setTimeout(settle, 1500);
+    } else {
+      map.setView(ll, Math.max(map.getZoom(), 17), { animate: true });
+      setTimeout(settle, 350);
+    }
+
+    if (isSheetMode()) openSheet();
+  }
+
+  /* --------------------------------------------------------------- wiring */
+  document.getElementById("btnAll").addEventListener("click", function () { setAll(true); });
+  document.getElementById("btnClear").addEventListener("click", function () { setAll(false); });
+  document.getElementById("btnResetInline").addEventListener("click", function () { setAll(true); });
+  document.getElementById("btnCloseDetail").addEventListener("click", closeSheet);
+  document.getElementById("backdrop").addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeSheet();
+  });
+
+  photoImg.addEventListener("error", function () { photoWrap.classList.add("is-fail"); });
+
+  var hillOn = true;
+  document.getElementById("lyrHillshade").addEventListener("change", function (e) {
+    hillOn = e.target.checked;
+    imgLayers.forEach(function (ov) {
+      if (ov._grp !== "hill") return;
+      if (hillOn) { if (!map.hasLayer(ov)) ov.addTo(map); }
+      else if (map.hasLayer(ov)) map.removeLayer(ov);
+    });
+  });
+
+  /* legend: only categories actually present in the data */
+  (function buildLegend() {
+    var counts = Object.create(null);
+    records.forEach(function (r) { counts[r.precision] = (counts[r.precision] || 0) + 1; });
+    var rows = document.getElementById("legendRows");
+    PREC_ORDER.forEach(function (name) {
+      if (!counts[name]) return;
+      var s = PREC_STYLE[name] || PREC_STYLE.Unknown;
+      var row = document.createElement("div");
+      row.className = "leg-row";
+      var dot = document.createElement("span");
+      dot.className = "leg-dot";
+      dot.style.width = Math.max(9, s.r * 2) + "px";
+      dot.style.height = Math.max(9, s.r * 2) + "px";
+      dot.style.background = s.fill;
+      var lab = document.createElement("span");
+      lab.textContent = name;
+      var n = document.createElement("span");
+      n.className = "leg-n";
+      n.textContent = counts[name];
+      row.appendChild(dot); row.appendChild(lab); row.appendChild(n);
+      rows.appendChild(row);
+    });
+    var present = Object.keys(counts);
+    var extra = PREC_ORDER.filter(function (p) { return counts[p]; });
+    document.getElementById("methodFoot").textContent =
+      "本匯出僅有 " + extra.join(" 與 ") + " 兩類（共 " + records.length +
+      " 張），沒有 Exact 或 Unknown 記錄。定位精度不代表 High／Medium／Low 信心度。";
+  })();
+
+  /* counts */
+  (function initStats() {
+    var mapped = records.filter(function (r) { return r.mapped; }).length;
+    document.getElementById("statTotal").textContent = fmt(records.length);
+    document.getElementById("statMapped").textContent = fmt(mapped);
+    document.getElementById("statUnmapped").textContent = fmt(records.length - mapped);
+  })();
+
+  buildFilters();
+  buildList();
+  render();
+
+  /* keep the map sized correctly when panels change */
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { map.invalidateSize(); });
+    ro.observe(document.querySelector(".panel-map"));
+  }
+  window.addEventListener("resize", function () { map.invalidateSize(); });
+
+  /* expose a tiny hook for automated QA (read-only) */
+  window.__b24 = {
+    count: function () { return records.length; },
+    visible: function () { return visible.map(function (r) { return r.id; }); },
+    selected: function () { return selectedIndex >= 0 ? records[selectedIndex].id : null; },
+    zoom: function () { return map.getZoom(); },
+    select: function (idx) { select(idx, {}); },
+    setZoom: function (z) { map.setZoom(z); },
+    rasters: function () { return RASTERS.map(function (r) { return { f: r.f, b: r.b }; }); },
+    overlayRects: function () {
+      var mr = map.getContainer().getBoundingClientRect();
+      return [].map.call(document.querySelectorAll(".leaflet-image-layer"), function (img) {
+        var r = img.getBoundingClientRect();
+        return { src: img.src.split("/").pop(),
+                 rect: [Math.round(r.left - mr.left), Math.round(r.top - mr.top), Math.round(r.width), Math.round(r.height)] };
+      });
+    },
+    project: function (b) {
+      var nw = map.latLngToContainerPoint([b[1][0], b[0][1]]);
+      var se = map.latLngToContainerPoint([b[0][0], b[1][1]]);
+      return [Math.round(nw.x), Math.round(nw.y), Math.round(se.x - nw.x), Math.round(se.y - nw.y)];
+    }
+  };
+})();
+</script>
+</body>
+</html>
